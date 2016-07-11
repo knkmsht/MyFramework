@@ -26,7 +26,45 @@ class Audio {
 	}
 	
 	/**
-	 * 設置音頻, 取得資訊指令參考 http://ubuntuforums.org/archive/index.php/t-1708195.html
+	 * 取得類型
+	 * @return string
+	 */
+	function getType() {
+		return $this->type;
+	}
+	
+	/**
+	 * 儲存檔案
+	 * @param string $file_target: 目標圖檔完整路徑
+	 * @param string $overwrite: 是否覆寫目標圖檔
+	 * @param string $delete: 是否刪除原圖檔(包含所有尺寸)
+	 * @param boolean $suffix: 是否添加後綴
+	 * @throws \Exception
+	 * @return string
+	 */
+	function save($file_target=null, $overwrite=false, $delete=false, $suffix=true) {
+		if ($file_target === null) {
+			$this->file_target = $this->file;
+		} else {
+			$this->file_target = $file_target;
+		}
+	
+		if (!is_file($this->file_target) || $overwrite) {
+			
+		}
+	
+		if ($delete) {
+			$pathinfo = pathinfo($this->file);
+			foreach (glob($pathinfo['dirname'] . DIRECTORY_SEPARATOR . $pathinfo['filename'] . '*.' . $pathinfo['extension']) as $v0) {
+				unlink($v0);
+			}
+		}
+	
+		return $this->file_target;
+	}
+	
+	/**
+	 * 設置檔案, 取得資訊指令參考 http://ubuntuforums.org/archive/index.php/t-1708195.html
 	 * @param string $file: 檔案絕對路徑
 	 * @param boolean $source: 是否尋回原檔案進行處理
 	 * @return \Core\Audio
@@ -40,14 +78,18 @@ class Audio {
 			}
 		}
 	
-		if (!is_audio($file)) throw new \Exception("[".__METHOD__."] Parameters error");
+		if (!is_audio($file)) throw new \Exception('File\'s type is incorrect.');
 	
 		$this->file_target = $this->file = $file;
-	
-		unset($entries);//exec 會在 array 末端追加內容, 保全起見先 unset
-		exec('ffprobe -of default=noprint_wrappers=1:nokey=1 -select_streams v:0 -show_entries format=bit_rate,duration,format_name,size -v error '.$file, $entries);
-		list($this->type, $this->duration, $this->filesize, $this->bitrate) = $entries;//注意丟出來的資訊有順序, 不隨指令變動
-	
+		
+		$entries = json_decode(shell_exec('ffprobe -print_format json -select_streams v:0 -show_entries format=bit_rate,duration,format_name,size '.escapeshellarg($file)), true);
+		
+		//format
+		$this->type = $entries['format']['format_name'];
+		$this->duration = $entries['format']['duration'];
+		$this->filesize = $entries['format']['size'];
+		$this->bitrate = $entries['format']['bit_rate'];
+		
 		return $this;
 	}
 }

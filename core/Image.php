@@ -54,6 +54,8 @@ class Image {
 	 * @return int
 	 */
 	function getQuality() {
+		if ($this->quality === null) $this->quality = shell_exec('identify -format %Q '.escapeshellarg($this->image));
+		
 		return $this->quality;
 	}
 	
@@ -97,8 +99,8 @@ class Image {
 	/**
 	 * 儲存圖檔
 	 * @param string $image_target: 目標圖檔完整路徑
-	 * @param string $overwrite: 是否覆寫目標圖檔
-	 * @param string $delete: 是否刪除原圖檔(包含所有尺寸)
+	 * @param boolean $overwrite: 是否覆寫目標圖檔
+	 * @param boolean $delete: 是否刪除原圖檔(包含所有尺寸)
 	 * @param boolean $suffix: 是否添加後綴
 	 * @throws \Exception
 	 * @return string
@@ -167,7 +169,9 @@ class Image {
 				
 				if ($this->type_target == 2) {
 					$imagick->setImageCompression($imagick::COMPRESSION_JPEG);
-					$imagick->setImageCompressionQuality($this->quality_target);
+					
+					if ($this->quality_target !== null && $this->quality_target != $this->getQuality()) $imagick->setImageCompressionQuality($this->quality_target);
+					
 					$imagick->setInterlaceScheme($imagick::INTERLACE_PLANE);//參考 http://stackoverflow.com/questions/7261855/recommendation-for-compressing-jpg-files-with-imagemagick
 				}
 				
@@ -270,10 +274,10 @@ class Image {
 						break;
 				
 					case 2:
-						imagejpeg($im_new, $this->image_target, $this->quality_target);
+						call_user_func_array('imagejpeg', ($this->quality_target !== null && $this->quality_target != $this->getQuality())? [$im_new, $this->image_target, $this->quality_target] : [$im_new, $this->image_target]);
 						imageinterlace($im_new, 1);
 						break;
-				
+						
 					case 3:
 						imagepng($im_new, $this->image_target);
 						break;
@@ -312,7 +316,7 @@ class Image {
 	function setImage($image, $source=true) {
 		if ($source) $image = $this->getSource($image);
 		
-		if (!is_image($image)) throw new \Exception('Param error');
+		if (!is_image($image)) throw new \Exception('File\'s type is incorrect.');
 		
 		$this->image_target = $this->image = $image;
 		
@@ -325,7 +329,7 @@ class Image {
 		 *     處理數位圖像翻轉的情況，其中正負 90 度(以及其倍數)翻轉的圖像，用 getimagesize 取得的 $width 和 $height 會和實際相反，因此對換；
 		 *     另外 exif_read_data 僅能支持 JPEG、TIFF
 		 */
-		if (in_array($this->type, array(2, 8))) {
+		if (in_array($this->type, [2, 8])) {
 			$this->exif = @exif_read_data($this->image);
 		}
 		
@@ -346,7 +350,6 @@ class Image {
 		$this->width_target = $this->width;
 		$this->height_target = $this->height;
 		$this->type_target = $this->type;
-		$this->quality_target = $this->quality = shell_exec('identify -format %Q '.$this->image);
 		
 		return $this;
 	}
